@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+  background:
+    radial-gradient(circle at top, #1a1a1a, #000 70%),
+    linear-gradient(to bottom, #000, #111);
+
+  color: white;
+  font-family: Arial;
+  padding: 20px;
+	}
+
+.track {
+  position: relative;
+  height: 70px;
+  margin: 16px 0;
+  border-radius: 12px;
+  overflow: hidden;
+
+  background: #2b2b2b;
+
+  border: 2px solid #444;
+}
+
+.track::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 200px;
+  right: 0;                 /* 🔥 more reliable than calc */
+  height: 3px;
+
+  background: repeating-linear-gradient(
+    to right,
+    white 0px,
+    white 25px,
+    transparent 25px,
+    transparent 50px
+  );
+
+  transform: translateY(-50%);
+  z-index: 1;               /* 🔥 ensure visibility */
+}
+
+.track:hover {
+  background: #3a3a3a;
+}
+
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,0.8),
+    inset 0 -2px 5px rgba(255,255,255,0.05);
+  animation: fadeIn 0.5s ease;
+
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.car {
+  position: absolute;
+  top: 10px;
+  height: 50px;
+  width: auto;              /* 🔥 keeps aspect ratio */
+  object-fit: contain;      /* prevents stretching */
+  transition: left 0.8s ease-out;
+  transform: translateY(-2px);
+  z-index: 2;
+}
+
+.track.leader {
+  box-shadow: 0 0 20px gold;
+}
+
+.driver-card {
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  font-size: 13px;
+  line-height: 1.2;
+  z-index: 2;
+}
+
+.driver-name {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.driver-stats {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.label {
+  position: absolute;
+  left: 10px;
+  top: -18px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.finish {
+  position: absolute;
+  right: 0;
+  width: 14px;
+  height: 100%;
+
+  background: repeating-linear-gradient(
+    45deg,
+    white 0px,
+    white 12px,
+    black 12px,
+    black 24px
+  );
+}
+
+  box-shadow: -3px 0 8px rgba(255,255,255,0.4);
+}
+</style>
+</head>
+
+<body>
+
+<h2>🏁 Arrivals Race</h2>
+<div id="race"></div>
+
+<script>
+const DATA_URL = "https://opensheet.elk.sh/1_GrJOwPbZwKQlZWQrY0MlBVGtjOGuaIlbod6A4w5VmQ/SUMMARY";
+
+const CARS = [
+  ".images/race_car (1).png",
+  ".images/race_car (2).png",
+  ".images/race_car (3).png",
+  ".images/race_car (4).png",
+  ".images/race_car (5).png",
+  ".images/race_car (6).png",
+  ".images/race_car (7).png",
+  ".images/race_car (8).png",
+];
+
+// stable car assignment
+function getCarIndex(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash) % CARS.length;
+}
+
+async function loadRace() {
+  const res = await fetch(DATA_URL);
+  const data = await res.json();
+
+  // 🔥 Clean + dedupe (keep highest Qs per closer)
+  const map = {};
+
+data.forEach(row => {
+  const name = row.CLOSER ? row.CLOSER.trim() : "";
+  const qs = parseFloat(row.Qs);
+  const volumeRaw = row.VOLUME || "";
+
+  // clean volume (remove $ and commas)
+  const volume = parseFloat(
+    volumeRaw.toString().replace(/[$,]/g, "")
+  );
+
+  if (!name || isNaN(qs)) return;
+
+  if (!map[name] || qs > map[name].qs) {
+    map[name] = {
+      qs: qs,
+      volume: isNaN(volume) ? 0 : volume
+    };
+  }
+});
+
+const players = Object.entries(map)
+  .map(([name, val]) => ({
+    name,
+    qs: val.qs,
+    volume: val.volume
+  }))
+  .sort((a, b) => b.qs - a.qs);
+
+  if (players.length === 0) {
+    document.getElementById("race").innerHTML = "<h3>No data</h3>";
+    return;
+  }
+
+  const max = players[0].qs;
+
+  const race = document.getElementById("race");
+  race.innerHTML = "";
+
+  players.forEach((p, index) => {
+    const percent = Math.max(25, (p.qs / max) * 90);
+
+    const track = document.createElement("div");
+    track.className = "track";
+
+    // 🥇 highlight leader
+    if (index === 0) {
+      track.style.boxShadow = "0 0 20px gold";
+    }
+
+    const car = document.createElement("img");
+    car.className = "car";
+    car.src = CARS[getCarIndex(p.name)];
+
+    // 🚫 prevent overlap
+    const offset = (index % 3) * 2;
+    car.style.left = (percent + offset) + "%";
+
+    // slight vertical variation
+    car.style.top = (10 + (index % 2) * 5) + "px";
+
+    const label = document.createElement("div");
+    label.className = "label";
+    const card = document.createElement("div");
+    card.className = "driver-card";
+
+    // format name
+    const nameEl = document.createElement("div");
+    nameEl.className = "driver-name";
+    nameEl.innerText = `NAME: ${p.name.toUpperCase()}`;
+
+    // stats line
+    const statsEl = document.createElement("div");
+    statsEl.className = "driver-stats";
+
+    // build stats text
+    let statsText = `Qs: ${p.qs}`;
+
+    if (p.volume && p.volume > 0) {
+    statsText += ` | Volume: $${p.volume.toLocaleString()}`;
+    }
+
+    statsEl.innerText = statsText;
+
+    // assemble card
+    card.appendChild(nameEl);
+    card.appendChild(statsEl);
+
+    const finish = document.createElement("div");
+    finish.className = "finish";
+
+    track.appendChild(card);
+    track.appendChild(car);
+    track.appendChild(finish);
+    race.appendChild(track);
+  });
+}
+
+// refresh every 15 seconds
+setInterval(loadRace, 15000);
+loadRace();
+</script>
+
+</body>
+</html>
