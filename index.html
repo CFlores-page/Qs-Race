@@ -102,6 +102,11 @@ body {
   font-weight: bold;
 }
 
+.ghost {
+  opacity: 0.35;
+  filter: grayscale(100%);
+}
+
 .finish {
   position: absolute;
   right: 0;
@@ -154,110 +159,102 @@ async function loadRace() {
   const res = await fetch(DATA_URL);
   const data = await res.json();
 
-  // 🔥 Clean + dedupe (keep highest Qs per closer)
   const map = {};
 
-data.forEach(row => {
-  const name = row.CLOSER ? row.CLOSER.trim() : "";
-  const qs = parseFloat(row.Qs);
-  const volumeRaw = row.VOLUME || "";
+  data.forEach(row => {
+    const name = row.CLOSER ? row.CLOSER.trim() : "";
+    const qs = Number(row.Qs) || 0;
+    const forecast = Number(row.FORCAST) || 0;
 
-  // clean volume (remove $ and commas)
-  const volume = parseFloat(
-    volumeRaw.toString().replace(/[$,]/g, "")
-  );
+    if (!name) return;
 
-  if (!name || isNaN(qs)) return;
+    // aggregate per closer
+    if (!map[name]) {
+      map[name] = { qs: 0, forecast: 0 };
+    }
 
-  if (!map[name] || qs > map[name].qs) {
-    map[name] = {
-      qs: qs,
-      volume: isNaN(volume) ? 0 : volume
-    };
-  }
-});
+    map[name].qs += qs;
+    map[name].forecast += forecast;
+  });
 
-const players = Object.entries(map)
-  .map(([name, val]) => ({
-    name,
-    qs: val.qs,
-    volume: val.volume
-  }))
-  .sort((a, b) => b.qs - a.qs);
-
-  if (players.length === 0) {
-    document.getElementById("race").innerHTML = "<h3>No data</h3>";
-    return;
-  }
-
-  const max = players[0].qs;
+  const players = Object.entries(map)
+    .map(([name, val]) => ({
+      name,
+      qs: val.qs,
+      forecast: val.forecast,
+      total: val.qs + val.forecast
+    }))
+    .sort((a, b) => b.total - a.total);
 
   const race = document.getElementById("race");
   race.innerHTML = "";
 
+  if (players.length === 0) {
+    race.innerHTML = "<h3>No data</h3>";
+    return;
+  }
+
+  const max = players[0].total;
+
   players.forEach((p, index) => {
-    const percent = Math.max(25, (p.qs / max) * 90);
 
     const track = document.createElement("div");
     track.className = "track";
 
-    // 🥇 highlight leader
     if (index === 0) {
       track.style.boxShadow = "0 0 20px gold";
     }
 
+    const realPercent = Math.max(25, (p.qs / max) * 90);
+    const ghostPercent = Math.max(25, (p.total / max) * 90);
+    const offset = (index % 3) * 2;
+
+    // 👻 Ghost (TOTAL = Arrivals + Booked)
+    const ghost = document.createElement("img");
+    ghost.className = "car ghost";
+    ghost.src = CARS[getCarIndex(p.name)];
+    ghost.style.left = (ghostPercent + offset) + "%";
+    ghost.style.top = (10 + (index % 2) * 5) + "px";
+
+    // 🏎️ Real (ARRIVALS)
     const car = document.createElement("img");
     car.className = "car";
     car.src = CARS[getCarIndex(p.name)];
-
-    // 🚫 prevent overlap
-    const offset = (index % 3) * 2;
-    car.style.left = (percent + offset) + "%";
-
-    // slight vertical variation
+    car.style.left = (realPercent + offset) + "%";
     car.style.top = (10 + (index % 2) * 5) + "px";
 
-    const label = document.createElement("div");
-    label.className = "label";
+    // Driver card
     const card = document.createElement("div");
     card.className = "driver-card";
 
-    // format name
     const nameEl = document.createElement("div");
     nameEl.className = "driver-name";
-    nameEl.innerText = `NAME: ${p.name.toUpperCase()}`;
+    nameEl.innerText = p.name.toUpperCase();
 
-    // stats line
     const statsEl = document.createElement("div");
     statsEl.className = "driver-stats";
+    statsEl.innerText = `Arrivals: ${p.qs} | Booked: ${p.forecast} | Forcast: ${p.total}`;
 
-    // build stats text
-    let statsText = `Qs: ${p.qs}`;
-
-    if (p.volume && p.volume > 0) {
-    statsText += ` | Volume: $${p.volume.toLocaleString()}`;
-    }
-
-    statsEl.innerText = statsText;
-
-    // assemble card
     card.appendChild(nameEl);
     card.appendChild(statsEl);
 
+    // Finish line
     const finish = document.createElement("div");
     finish.className = "finish";
 
+    // Append everything
     track.appendChild(card);
+    track.appendChild(ghost);
     track.appendChild(car);
     track.appendChild(finish);
+
     race.appendChild(track);
   });
 }
 
 // refresh every 15 seconds
 setInterval(loadRace, 15000);
-loadRace();
-</script>
+loadRace();</script>
 
 </body>
 </html>
