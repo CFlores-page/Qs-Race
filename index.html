@@ -48,11 +48,11 @@ body {
   background: #3a3a3a;
 }
 
+.track {
   box-shadow:
     inset 0 2px 5px rgba(0,0,0,0.8),
     inset 0 -2px 5px rgba(255,255,255,0.05);
   animation: fadeIn 0.5s ease;
-
 }
 
 @keyframes fadeIn {
@@ -104,7 +104,6 @@ body {
 
 .ghost {
   opacity: 0.35;
-  filter: grayscale(100%);
 }
 
 .finish {
@@ -179,24 +178,24 @@ async function loadRace() {
 
   const players = Object.entries(map)
     .map(([name, val]) => ({
-      name,
-      qs: val.qs,
-      forecast: val.forecast,
-      total: val.qs + val.forecast
-    }))
-    .sort((a, b) => b.total - a.total);
+ 	 name,
+  	arrivals: val.qs,
+ 	forecast: val.forecast,
+	projected: val.qs + val.forecast
+	}))
+    .sort((a, b) => b.projected - a.projected);
+    
+    const race = document.getElementById("race");
+    race.innerHTML = "";
 
-  const race = document.getElementById("race");
-  race.innerHTML = "";
-
-  if (players.length === 0) {
+    if (players.length === 0) {
     race.innerHTML = "<h3>No data</h3>";
     return;
-  }
+    }
 
-  const max = players[0].total;
+    const max = Math.max(players[0].projected, 1);
 
-  players.forEach((p, index) => {
+    players.forEach((p, index) => {
 
     const track = document.createElement("div");
     track.className = "track";
@@ -205,8 +204,8 @@ async function loadRace() {
       track.style.boxShadow = "0 0 20px gold";
     }
 
-    const realPercent = Math.max(25, (p.qs / max) * 90);
-    const ghostPercent = Math.max(25, (p.total / max) * 90);
+    const realPercent = (p.arrivals / max) * 90;
+    const ghostPercent = (p.projected / max) * 90;  
     const offset = (index % 3) * 2;
 
     // 👻 Ghost (TOTAL = Arrivals + Booked)
@@ -217,11 +216,15 @@ async function loadRace() {
     ghost.style.top = (10 + (index % 2) * 5) + "px";
 
     // 🏎️ Real (ARRIVALS)
-    const car = document.createElement("img");
-    car.className = "car";
-    car.src = CARS[getCarIndex(p.name)];
-    car.style.left = (realPercent + offset) + "%";
-    car.style.top = (10 + (index % 2) * 5) + "px";
+    let car = null;
+
+    if (p.arrivals > 0) {
+      car = document.createElement("img");
+      car.className = "car";
+      car.src = CARS[getCarIndex(p.name)];
+      car.style.left = (realPercent + offset) + "%";
+      car.style.top = (10 + (index % 2) * 5) + "px";
+    }
 
     // Driver card
     const card = document.createElement("div");
@@ -233,7 +236,7 @@ async function loadRace() {
 
     const statsEl = document.createElement("div");
     statsEl.className = "driver-stats";
-    statsEl.innerText = `Arrivals: ${p.qs} | Booked: ${p.forecast} | Forecast: ${p.total}`;
+    statsEl.innerText = `Arrivals: ${p.arrivals} | Forecast: ${p.forecast}`;
 
     card.appendChild(nameEl);
     card.appendChild(statsEl);
@@ -243,14 +246,18 @@ async function loadRace() {
     finish.className = "finish";
 
     // Append everything
+    // Append everything
     track.appendChild(card);
     track.appendChild(ghost);
-    track.appendChild(car);
-    track.appendChild(finish);
 
+    if (car) {
+      track.appendChild(car);
+    }
+
+    track.appendChild(finish);
     race.appendChild(track);
-  });
-}
+});
+} 
 
 // refresh every 15 seconds
 setInterval(loadRace, 15000);
