@@ -77,11 +77,20 @@ body {
 
 .driver-card {
   position: absolute;
-  left: 45px;
+  left: 16px;
   top: 8px;
-  font-size: 13px;
-  line-height: 1.2;
   z-index: 2;
+
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 2px;
+}
+
+.driver-site {
+  font-size: 10px;
+  font-weight: bold;
+  color: #9fd3ff;
+  letter-spacing: 0.5px;
 }
 
 .driver-name {
@@ -121,29 +130,6 @@ body {
   );
 
   box-shadow: -3px 0 8px rgba(255, 255, 255, 0.4);
-}
-
-.site-badge {
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-
-  background: #111;
-  border: 2px solid #777;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 10px;
-  font-weight: bold;
-  color: white;
-  z-index: 3;
 }
 
 </style>
@@ -250,13 +236,13 @@ const players = Object.entries(map)
       car.style.top = (10 + (index % 2) * 5) + "px";
     }
 
-    const siteBadge = document.createElement("div");
-    siteBadge.className = "site-badge";
-    siteBadge.innerText = p.site || "";
-
     // Driver card
     const card = document.createElement("div");
     card.className = "driver-card";
+
+    const siteEl = document.createElement("div");
+    siteEl.className = "driver-site";
+    siteEl.innerText = p.site || "";
 
     const nameEl = document.createElement("div");
     nameEl.className = "driver-name";
@@ -266,6 +252,7 @@ const players = Object.entries(map)
     statsEl.className = "driver-stats";
     statsEl.innerText = `Arrivals: ${p.arrivals} | Forecast: ${p.forecast}`;
 
+    card.appendChild(siteEl);
     card.appendChild(nameEl);
     card.appendChild(statsEl);
 
@@ -274,7 +261,6 @@ const players = Object.entries(map)
     finish.className = "finish";
 
     // Append everything
-    track.appendChild(siteBadge);
     track.appendChild(card);
     track.appendChild(ghost);
 
